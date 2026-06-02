@@ -80,10 +80,6 @@ class KVStoreServiceTest {
     @MockBean(NamespaceService.class)
     public static class MockNamespaceService extends DefaultNamespaceService {
 
-        public MockNamespaceService() {
-            super(null);
-        }
-
         @Override
         public boolean isNamespaceExists(String tenant, String namespace) {
             return namespace.equals(TEST_EXISTING_NAMESPACE);

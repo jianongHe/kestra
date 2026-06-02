@@ -1,6 +1,7 @@
 package io.kestra.core.services;
 
 import java.util.Objects;
+import java.util.Optional;
 
 import io.kestra.core.exceptions.ResourceAccessDeniedException;
 import io.kestra.core.runners.FlowMetaStoreInterface;
@@ -14,11 +15,16 @@ import jakarta.inject.Singleton;
 @Singleton
 public class DefaultNamespaceService implements NamespaceService {
 
-    private final FlowMetaStoreInterface flowMetaStore;
+    private final Optional<FlowMetaStoreInterface> flowMetaStore;
 
     @Inject
     public DefaultNamespaceService(FlowMetaStoreInterface flowMetaStore) {
-        this.flowMetaStore = flowMetaStore;
+        this.flowMetaStore = Optional.of(flowMetaStore);
+    }
+
+    // used in EE, which overrides isNamespaceExists() to avoid the hard dependency of FlowMetaStoreInterface
+    protected DefaultNamespaceService() {
+        this.flowMetaStore = Optional.empty();
     }
 
     /**
@@ -27,7 +33,7 @@ public class DefaultNamespaceService implements NamespaceService {
     @Override
     public boolean isNamespaceExists(String tenant, String namespace) {
         Objects.requireNonNull(namespace, "namespace cannot be null");
-        return flowMetaStore.isNamespaceExists(tenant, namespace);
+        return flowMetaStore.orElseThrow().isNamespaceExists(tenant, namespace);
     }
 
     /**
