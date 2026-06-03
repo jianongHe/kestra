@@ -1,8 +1,9 @@
 package io.kestra.worker.fetchers;
 
 import java.time.Duration;
-import java.util.ArrayList;
 import java.util.List;
+import java.util.Queue;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -18,12 +19,13 @@ import io.kestra.controller.grpc.WorkerJobRequest;
 import io.kestra.controller.grpc.WorkerJobResponse;
 import io.kestra.controller.messages.MessageFormats;
 import io.kestra.controller.messages.RequestOrResponseHeaderFactory;
-import io.kestra.core.models.tasks.WorkerGroup;
+
 import io.kestra.core.queues.BroadcastQueueInterface;
 import io.kestra.core.queues.QueueException;
 import io.kestra.core.runners.WorkerJob;
 import io.kestra.core.server.ClusterEvent;
 import io.kestra.core.worker.WorkerBroadcastEvent;
+import io.kestra.core.worker.WorkerMetadataChangeHandler;
 import io.kestra.core.worker.models.WorkerContext;
 import io.kestra.worker.WorkerLoop;
 import io.kestra.worker.queues.WorkerQueue;
@@ -39,25 +41,26 @@ import jakarta.inject.Singleton;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Component responsible for fetching worker jobs using the pull/ack bidirectional streaming pattern.
+ * Component responsible for fetching worker jobs using a bidirectional streaming pattern
+ * with permit-based flow control.
  * <p>
  * This client:
  * <ul>
  * <li>Opens a bidirectional stream to the controller on startup</li>
- * <li>Sends initial connection info (workerId, workerGroup, maxConcurrency) + initial permits</li>
+ * <li>Sends initial connection info (workerId, workerGroupId, maxConcurrency) + initial permits</li>
  * <li>Receives jobs from the controller and puts them in the local queue</li>
- * <li>Sends ACKs for received jobs along with new permit requests</li>
+ * <li>Sends updated permit values back to the controller as local capacity changes</li>
+ * <li>Piggy-backs job completion signals (job UIDs that reached a terminal state) on
+ *     the same stream so the controller can release the per-queue bucket reserved
+ *     for the job — see {@link #onJobCompleted(String)}</li>
  * </ul>
  * <p>
  * The controller only sends jobs when the worker has permits (capacity), providing flow control
  * and preventing worker overload.
- * <p>
- * ACKs are "receipt ACKs" (not completion ACKs) - they signal that the job was received and
- * is queued locally, allowing the controller to clean up its in-memory tracking.
  */
 @Singleton
 @Slf4j
-public class WorkerJobFetcher extends WorkerLoop {
+public class WorkerJobFetcher extends WorkerLoop implements JobFetcher {
 
     /**
      * Qualifier of the worker-local cluster-event broadcast bus.
@@ -87,12 +90,14 @@ public class WorkerJobFetcher extends WorkerLoop {
     private final WorkerQueueRegistry workerQueueRegistry;
     private final ExecutionKilledManager executionKilledManager;
     private final BroadcastQueueInterface<ClusterEvent> clusterEventQueue;
+    private final List<WorkerMetadataChangeHandler> metadataChangeHandlers;
 
     private WorkerQueue<WorkerJob> workerJobQueue;
     private WorkerContext workerContext;
 
     /**
-     * Reference to the current stream's request observer for sending permits/acks.
+     * Reference to the current stream's request observer for sending permits and
+     * completion signals back to the controller.
      */
     private final AtomicReference<ClientCallStreamObserver<WorkerJobRequest>> requestObserverRef = new AtomicReference<>();
 
@@ -106,6 +111,15 @@ public class WorkerJobFetcher extends WorkerLoop {
      * Tracks the last permits value sent to avoid sending duplicates.
      */
     private final AtomicInteger lastSentPermits = new AtomicInteger(-1);
+
+    /**
+     * UIDs of jobs that reached a terminal state on this worker and need to be
+     * signaled back to the owning controller on the next outgoing
+     * {@link WorkerJobRequest}. Drained into the {@code completedJobIds} field;
+     * a non-empty queue also triggers a permit-update flush so completions don't
+     * sit when permits aren't changing.
+     */
+    private final Queue<String> pendingCompletions = new ConcurrentLinkedQueue<>();
 
     /**
      * Latch to detect when stream completes.
@@ -134,17 +148,23 @@ public class WorkerJobFetcher extends WorkerLoop {
      *                          received from the controller to in-process subscribers. May be {@code null}
      *                          when the process has direct access to the shared broadcast queue (see
      *                          {@link #WORKER_LOCAL_CLUSTER_EVENTS}).
+     * @param metadataChangeHandlers worker-side handlers invoked for each
+     *                               {@link WorkerBroadcastEvent.MetadataChangeEvent} received from the controller
+     *                               and on stream (re-)connection. Typically one handler per cached metastore;
+     *                               may be empty on workers that do not participate in metastore caching.
      */
     @Inject
     public WorkerJobFetcher(final WorkerControllerServiceStub workerControllerServiceStub,
         final WorkerQueueRegistry workerQueueRegistry,
         final ExecutionKilledManager executionKilledManager,
-        @Nullable @Named(WORKER_LOCAL_CLUSTER_EVENTS) final BroadcastQueueInterface<ClusterEvent> clusterEventQueue) {
+        @Nullable @Named(WORKER_LOCAL_CLUSTER_EVENTS) final BroadcastQueueInterface<ClusterEvent> clusterEventQueue,
+        final List<WorkerMetadataChangeHandler> metadataChangeHandlers) {
         super(WorkerJobFetcher.class.getSimpleName());
         this.workerQueueRegistry = workerQueueRegistry;
         this.workerControllerServiceStub = workerControllerServiceStub;
         this.executionKilledManager = executionKilledManager;
         this.clusterEventQueue = clusterEventQueue;
+        this.metadataChangeHandlers = metadataChangeHandlers;
     }
 
     /**
@@ -250,8 +270,12 @@ public class WorkerJobFetcher extends WorkerLoop {
     private void sendInitialRequest(ClientCallStreamObserver<WorkerJobRequest> requestStream) {
         int initialPermits = calculatePermits();
 
-        // workerGroup is optional - use empty string for default group
-        final String workerGroup = workerContext.workerGroup();
+        String workerGroupId = workerContext.workerGroupId();
+
+        // Advertise the worker's true maximum in-flight capacity: threads currently
+        // executing plus jobs pending in the buffer. Controller bases its reservation
+        // math (guaranteedCapacity / sharedCapacity) on this value.
+        int maxConcurrency = workerContext.workerThreads() + workerJobQueue.capacity();
 
         WorkerJobRequest.Builder requestBuilder = WorkerJobRequest.newBuilder()
             .setHeader(RequestOrResponseHeaderFactory.create(workerContext))
@@ -259,10 +283,11 @@ public class WorkerJobFetcher extends WorkerLoop {
             .setConnectionInfo(
                 WorkerConnectionInfo.newBuilder()
                     .setWorkerId(workerContext.workerId())
-                    .setWorkerGroup(workerGroup == null ? "" : workerGroup)
-                    .setMaxConcurrency(workerContext.workerThreads())
+                    .setWorkerGroupId(workerGroupId)
+                    .setMaxConcurrency(maxConcurrency)
                     .build()
             );
+        addPendingCompletions(requestBuilder);
 
         doSend(requestStream, requestBuilder.build());
         lastSentPermits.set(initialPermits);
@@ -272,10 +297,18 @@ public class WorkerJobFetcher extends WorkerLoop {
         log.info(
             "Connected to controller: workerId={}, workerGroup={}, maxConcurrency={}, initialPermits={}",
             workerContext.workerId(),
-            WorkerGroup.forLog(workerGroup),
-            workerContext.workerThreads(),
+            workerGroupId,
+            maxConcurrency,
             initialPermits
         );
+        for (WorkerMetadataChangeHandler handler : metadataChangeHandlers) {
+            try {
+                handler.onReconnect();
+            } catch (Exception e) {
+                log.warn("Metadata-change handler {} failed onReconnect: {}",
+                    handler.getClass().getSimpleName(), e.getMessage());
+            }
+        }
     }
 
     /**
@@ -287,28 +320,17 @@ public class WorkerJobFetcher extends WorkerLoop {
             return;
         }
 
-        // Process broadcast events (kill commands, cluster events, etc.)
+        // Process broadcast events (kill commands, cluster events, metadata changes)
         for (ByteString eventData : response.getEventsList()) {
             try {
                 WorkerBroadcastEvent event = MessageFormats.JSON.fromByteString(eventData, WorkerBroadcastEvent.class);
-                switch (event) {
-                    case WorkerBroadcastEvent.KillEvent killEvent ->
-                        executionKilledManager.onKillReceived(killEvent.payload());
-                    case WorkerBroadcastEvent.ClusterBroadcast clusterBroadcast -> {
-                        if (clusterEventQueue != null) {
-                            log.debug("Received cluster event via gRPC: type={}", clusterBroadcast.payload().eventType());
-                            clusterEventQueue.emit(clusterBroadcast.payload());
-                        }
-                    }
-                }
-            } catch (QueueException e) {
-                log.error("Error emitting cluster event to local queue: {}", e.getMessage(), e);
+                onBroadcastEvent(event);
             } catch (Exception e) {
                 log.error("Error processing broadcast event: {}", e.getMessage(), e);
             }
         }
 
-        List<String> acks = new ArrayList<>();
+        int receivedJobs = 0;
         for (WorkerJobPayload payload : response.getJobsList()) {
             try {
                 String jobId = payload.getJobId();
@@ -318,38 +340,73 @@ public class WorkerJobFetcher extends WorkerLoop {
 
                 // Put job in local queue (blocking if full - provides local backpressure)
                 workerJobQueue.put(job);
-
-                // Collect ACK for this job (receipt acknowledgment)
-                acks.add(jobId);
+                receivedJobs++;
 
             } catch (Exception e) {
                 log.error("Error processing job payload: {}", e.getMessage(), e);
             }
         }
 
-        // Send ACKs and request more permits based on remaining capacity
-        // Only send if there were jobs (event-only responses don't need permit updates)
-        if (!acks.isEmpty()) {
-            sendPermitsAndAcks(observer, calculatePermits(), acks);
+        // After buffering jobs, push an updated permit value back. Event-only
+        // responses don't need this update.
+        if (receivedJobs > 0) {
+            sendPermitsForReceivedJobs(observer, calculatePermits(), receivedJobs);
         }
     }
 
     /**
-     * Sends permits and ACKs to the controller.
+     * Routes a single decoded {@link WorkerBroadcastEvent} to its handler. Package-private for
+     * unit testing.
      */
-    private void sendPermitsAndAcks(ClientCallStreamObserver<WorkerJobRequest> observer, int permits, List<String> acks) {
-        WorkerJobRequest request = WorkerJobRequest.newBuilder()
+    void onBroadcastEvent(WorkerBroadcastEvent event) {
+        switch (event) {
+            case WorkerBroadcastEvent.KillEvent killEvent ->
+                executionKilledManager.onKillReceived(killEvent.payload());
+            case WorkerBroadcastEvent.ClusterBroadcast clusterBroadcast -> {
+                if (clusterEventQueue != null) {
+                    log.debug("Received cluster event via gRPC: type={}", clusterBroadcast.payload().eventType());
+                    try {
+                        clusterEventQueue.emit(clusterBroadcast.payload());
+                    } catch (QueueException e) {
+                        log.error("Error emitting cluster event to local queue: {}", e.getMessage(), e);
+                    }
+                }
+            }
+            case WorkerBroadcastEvent.MetadataChangeEvent metadataChange -> {
+                if (!metadataChangeHandlers.isEmpty()) {
+                    log.debug("Received metadata change via gRPC: type={}, tenantId={}, namespace={}",
+                        metadataChange.payload().type(),
+                        metadataChange.payload().tenantId(),
+                        metadataChange.payload().namespace());
+                    for (WorkerMetadataChangeHandler handler : metadataChangeHandlers) {
+                        try {
+                            handler.onMetadataChange(metadataChange.payload());
+                        } catch (Exception e) {
+                            log.warn("Metadata-change handler {} failed: {}",
+                                handler.getClass().getSimpleName(), e.getMessage());
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Sends an updated permit value after buffering jobs received from the controller,
+     * piggy-backing any pending completion signals.
+     */
+    private void sendPermitsForReceivedJobs(ClientCallStreamObserver<WorkerJobRequest> observer, int permits, int receivedJobs) {
+        WorkerJobRequest.Builder builder = WorkerJobRequest.newBuilder()
             .setHeader(RequestOrResponseHeaderFactory.create(workerContext))
-            .setPermits(permits)
-            .addAllAcknowledgedJobIds(acks)
-            .build();
+            .setPermits(permits);
+        int completions = addPendingCompletions(builder);
 
         try {
-            doSend(observer, request);
+            doSend(observer, builder.build());
             lastSentPermits.set(permits);
-            log.trace("Sent permits={}, acks={}", permits, acks.size());
+            log.trace("Sent permits={}, receivedJobs={}, completions={}", permits, receivedJobs, completions);
         } catch (Exception e) {
-            log.error("Error sending permits/acks: {}", e.getMessage());
+            log.error("Error sending permits: {}", e.getMessage());
         }
     }
 
@@ -361,8 +418,10 @@ public class WorkerJobFetcher extends WorkerLoop {
     }
 
     /**
-     * Sends a permit update to the controller if capacity has changed since last send.
-     * This ensures the controller is notified when jobs complete and capacity becomes available.
+     * Sends a permit update to the controller if capacity has changed since last
+     * send or if there are pending completion notifications to flush. The completion
+     * piggy-back ensures terminal-state signals don't sit indefinitely when permits
+     * happen to be stable.
      */
     private void sendPermitUpdateIfNeeded() {
         ClientCallStreamObserver<WorkerJobRequest> observer = requestObserverRef.get();
@@ -373,25 +432,51 @@ public class WorkerJobFetcher extends WorkerLoop {
         int currentPermits = calculatePermits();
         int lastPermits = lastSentPermits.get();
 
-        // Only send if permits have changed
-        if (currentPermits != lastPermits) {
+        if (currentPermits != lastPermits || !pendingCompletions.isEmpty()) {
             sendPermits(observer, currentPermits);
         }
+    }
+
+    /**
+     * Records a terminal-state signal for {@code jobId} to be flushed to the owning
+     * controller on the next outgoing {@link WorkerJobRequest}. The controller uses
+     * this to release the per-queue bucket slot reserved for the job, so reservations
+     * hold across the whole job lifetime instead of only until receipt.
+     */
+    public void onJobCompleted(String jobId) {
+        if (jobId == null || jobId.isEmpty()) {
+            return;
+        }
+        pendingCompletions.offer(jobId);
+    }
+
+    /**
+     * Drains {@link #pendingCompletions} into the request builder and returns the
+     * number of completions appended. Safe to call when the queue is empty (no-op).
+     */
+    private int addPendingCompletions(WorkerJobRequest.Builder builder) {
+        int added = 0;
+        String jobId;
+        while ((jobId = pendingCompletions.poll()) != null) {
+            builder.addCompletedJobIds(jobId);
+            added++;
+        }
+        return added;
     }
 
     /**
      * Sends permits to the controller and updates the last sent value.
      */
     private void sendPermits(ClientCallStreamObserver<WorkerJobRequest> observer, int permits) {
-        WorkerJobRequest request = WorkerJobRequest.newBuilder()
+        WorkerJobRequest.Builder builder = WorkerJobRequest.newBuilder()
             .setHeader(RequestOrResponseHeaderFactory.create(workerContext))
-            .setPermits(permits)
-            .build();
+            .setPermits(permits);
+        int completions = addPendingCompletions(builder);
 
         try {
-            doSend(observer, request);
+            doSend(observer, builder.build());
             lastSentPermits.set(permits);
-            log.debug("Sent permit update: permits={}", permits);
+            log.debug("Sent permit update: permits={}, completions={}", permits, completions);
         } catch (Exception e) {
             log.error("Error sending permit update: {}", e.getMessage());
         }

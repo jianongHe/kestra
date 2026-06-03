@@ -9,10 +9,11 @@ import {ILanguageFeaturesService} from "monaco-editor/esm/vs/editor/common/servi
 import AbstractLanguageConfigurator from "./abstractLanguageConfigurator"
 import {YamlAutoCompletion} from "../../../services/autoCompletionProvider"
 import RegexProvider from "../../../utils/regex"
-import {flowYamlUtils as YAML_UTILS} from "@kestra-io/design-system"
+import {flowYamlUtils as YAML_UTILS} from "@kestra-io/topology"
 import {
     endOfWordColumn,
     NO_SUGGESTIONS,
+    registerFilterAutoCompletion,
     registerFunctionParametersAutoCompletion,
     registerNestedValueAutoCompletion,
     registerPebbleAutocompletion,
@@ -25,6 +26,8 @@ import IModel = monaco.editor.IModel;
 import ProviderResult = monaco.languages.ProviderResult;
 import CompletionList = monaco.languages.CompletionList;
 import CompletionItem = languages.CompletionItem;
+import CompletionContext = languages.CompletionContext;
+import CancellationToken = monaco.CancellationToken;
 
 type TaskLike = Record<string, unknown>;
 
@@ -132,6 +135,8 @@ export class YamlLanguageConfigurator extends AbstractLanguageConfigurator {
                     provideCompletionItems: (
                         model: IModel,
                         position: IPosition,
+                        context: CompletionContext,
+                        token: CancellationToken,
                     ) => ProviderResult<CompletionList>;
                 };
             }[]
@@ -149,9 +154,11 @@ export class YamlLanguageConfigurator extends AbstractLanguageConfigurator {
         yamlCompletion.provider.provideCompletionItems = async function (
             model: IModel,
             position: IPosition,
+            context: CompletionContext,
+            token: CancellationToken,
         ) {
-            const defaultCompletion = await initialCompletion(model, position)
-            if (!defaultCompletion) {
+            const defaultCompletion = await initialCompletion(model, position, context, token)
+            if (!defaultCompletion || token.isCancellationRequested) {
                 return defaultCompletion
             }
 
@@ -585,6 +592,12 @@ export class YamlLanguageConfigurator extends AbstractLanguageConfigurator {
         )
 
         registerNestedValueAutoCompletion(
+            autoCompletionProviders,
+            yamlAutoCompletion,
+            ["yaml", "plaintext"],
+        )
+
+        registerFilterAutoCompletion(
             autoCompletionProviders,
             yamlAutoCompletion,
             ["yaml", "plaintext"],

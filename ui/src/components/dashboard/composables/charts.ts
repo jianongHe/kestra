@@ -44,7 +44,7 @@ export function defaultConfig(override: {
     [key: string]: any;
 }, theme?: "dark" | "light") {
     const protectedTheme = theme ?? Utils.getTheme()
-    const color = protectedTheme === "dark" ? "#FFFFFF" : cssVar("--ks-gray-700")
+    const color = protectedTheme === "dark" ? "#FFFFFF" : cssVar("--ks-gray-cool-700")
 
     return _merge(
         {
@@ -61,13 +61,13 @@ export function defaultConfig(override: {
                     display: false,
                     title: {color},
                     ticks: {color},
-                    border: {color: cssVar("--ks-border-primary")},
+                    border: {color: cssVar("--ks-border-default")},
                 },
                 y: {
                     display: false,
                     title: {color},
                     ticks: {color},
-                    border: {color: cssVar("--ks-border-primary")},
+                    border: {color: cssVar("--ks-border-default")},
                 },
                 yB: {
                     display: false,

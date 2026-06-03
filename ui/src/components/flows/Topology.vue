@@ -11,8 +11,11 @@
                 :expandedSubflows="expandedSubflows"
                 @expand-subflow="onExpandSubflow"
                 @on-edit="(event) => emit('on-edit', event, true)"
-                :animated="false"
-            />
+            >
+                <template #taskDetails="taskProps">
+                    <slot name="taskDetails" v-bind="taskProps" />
+                </template>
+            </LowCodeEditor>
             <KsAlert v-else type="warning" :closable="false">
                 {{ $t("unable to generate graph") }}
             </KsAlert>

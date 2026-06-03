@@ -1,8 +1,18 @@
 {
   "en": {
+    "more actions": "More actions",
+    "toggle menu": "Toggle menu",
+    "panel actions": "Panel actions",
+    "playground actions": "Playground actions",
+    "bulk actions": "Bulk actions",
+    "view metrics": "View metrics",
+    "remove this item": "Remove this item",
+    "add label": "Add label",
+    "remove label": "Remove label",
     "id": "Id",
     "type": "Type",
     "ok": "OK",
+    "valid": "Valid",
     "close": "Close",
     "namespace": "Namespace",
     "description": "Description",
@@ -62,12 +72,14 @@
     "add_new_item": "Add new item",
     "copy": "Copy",
     "copy_to_clipboard": "Copy to clipboard",
+    "copy_and_close": "Copy and close",
     "Per page": "per page",
     "new": "New",
     "edit": "Edit",
     "edit flow": "Edit flow",
     "executions": "Executions",
     "execution": "Execution",
+    "execution id": "Execution Id",
     "recent_executions": "Recent Executions",
     "details": "Details",
     "overview": "Overview",
@@ -102,6 +114,15 @@
       "last7days": "Last 7 days",
       "last30days": "Last 30 days",
       "last365days": "Last 365 days",
+      "next5minutes": "Next 5 minutes",
+      "next15minutes": "Next 15 minutes",
+      "next1hour": "Next 1 hour",
+      "next12hours": "Next 12 hours",
+      "next24hours": "Next 24 hours",
+      "next48hours": "Next 48 hours",
+      "next7days": "Next 7 days",
+      "next30days": "Next 30 days",
+      "next365days": "Next 365 days",
       "5minutes": "5 minutes",
       "15minutes": "15 minutes",
       "1hour": "1 hour",
@@ -123,7 +144,14 @@
       "previousMonth": "Previous month",
       "thisYear": "This year",
       "thisYearSoFar": "This year so far",
-      "previousYear": "Previous year"
+      "previousYear": "Previous year",
+      "short": {
+        "15m": "15m",
+        "1h": "1h",
+        "12h": "12h",
+        "1d": "1d",
+        "7d": "7d"
+      }
     },
     "created date": "Created date",
     "latest_update": "Latest update",
@@ -173,6 +201,7 @@
     "display flow {id} executions": "Display flow {id} executions",
     "actions": "Actions",
     "select datetime": "Select a date",
+    "select view": "Select view",
     "invalid field": "Invalid field: {name}",
     "required field": "Required field",
     "is required": "{field} is required",
@@ -345,14 +374,15 @@
     "no_variables": "No variables available.",
     "download": "Download",
     "concurrency_limit": {
-        "dialog_title": "Concurrency Limits",
-        "warning": "Changing the running counter may corrupt concurrency so executions may exceed the allowed limit"
+      "dialog_title": "Concurrency Limits",
+      "warning": "Changing the running counter may corrupt concurrency so executions may exceed the allowed limit"
     },
     "documentation": {
       "documentation": "Documentation",
       "github": "Open a GitHub issue"
     },
     "blueprints": {
+      "all": "All",
       "community": "Community",
       "create": "Create a blueprint",
       "edit": "Edit a blueprint",
@@ -439,12 +469,14 @@
     "last evaluation date": "Last evaluation date",
     "last trigger date tooltip": "When the trigger last executed. May be in the past when running a backfill.",
     "context updated date tooltip": "When the trigger's context was last updated. This occurs when execution is triggered, finishes (lock released), or after an evaluation (even if no execution happens).",
-    "next evaluation date tooltip": "When the trigger will next be evaluated, based on its interval. Not always the same as the next execution date if conditions are not met.",
+    "next evaluation date tooltip": "When the scheduler will next evaluate this trigger, based on its interval. An evaluation only produces an execution if the trigger's conditions are met.",
+    "last evaluation date tooltip": "When the trigger was last evaluated by the scheduler, regardless of whether it produced an execution.",
     "conditions": "Conditions",
     "triggerId": "Trigger ID",
     "tenantId": "Tenant ID",
     "codeDisabled": "Disabled in Flow",
     "paused": "Paused",
+    "running": "Running",
     "Fold auto": "Editor: automatic fold of multi-lines",
     "Hover description": "Editor: Show description of field when hovering on key or value",
     "Fold content lines": "Fold multiline strings",
@@ -467,7 +499,7 @@
     "Editor fontsize": "Editor font size",
     "Editor fontfamily": "Editor font family",
     "errors": {
-      "404": {
+       "404": {
         "title": "Page not found",
         "content": "The requested URL was not found on this server.<br />That’s all we know.",
         "flow or execution": "The flow or execution you are looking for does not exist."
@@ -499,7 +531,9 @@
     "execution labels": "Execution labels",
     "wrong labels": "Empty key or value is not allowed in labels",
     "feeds": {
-      "title": "What's new at Kestra"
+      "title": "What's new at Kestra",
+      "heading": "All things Kestra.",
+      "subheading": "The latest updates, guides and stories"
     },
     "delete execution running": "<div class=\"alert alert-warning mt-2 mb-0\">This execution is still running, deleting it will not stop it.<br />You need to kill the execution to stop it.</div>",
     "restore": "Restore",
@@ -661,6 +695,9 @@
     "open": "Open",
     "dependency task": "Task {taskId} is a dependency of another task",
     "administration": "Administration",
+    "admin": "Admin",
+    "main_configuration": "Main Configuration",
+    "commit_id": "Commit id",
     "evaluation lock date": "Evaluation lock date",
     "unlock trigger": {
       "tooltip": {
@@ -695,6 +732,8 @@
     "port": "Port",
     "management port": "Management port",
     "file preview truncated": "Displayed content has been truncated",
+    "file unavailable": "File unavailable",
+    "file unavailable description": "This file is no longer available — it may have been purged or expired.",
     "row count": "Row count",
     "encoding": "Encoding",
     "show": "Show",
@@ -783,10 +822,10 @@
         }
       },
       "revisions": {
-          "history": "Revision history",
-          "restore": {
-              "success": "File revision restored successfully"
-          }
+        "history": "Revision history",
+        "restore": {
+          "success": "File revision restored successfully"
+        }
       },
       "path": {
         "copy": "Copy path",
@@ -847,12 +886,54 @@
       }
     },
     "pluginPage": {
-      "title1": "Plugins are building blocks for your workflows.",
-      "title2": "Search for tasks and triggers to build your flow.",
-      "search": "Search across {count}+ plugins",
-      "alt": "Plugins Icon"
+      "search": "Search across 1400+ plugins",
+      "searchTasks": "Search {count} tasks",
+      "noResults": "No plugins match your search.",
+      "loadError": "Could not load plugins. Please try again.",
+      "notFound": "This plugin could not be found.",
+      "elementType": {
+        "tasks": "Task",
+        "triggers": "Trigger",
+        "conditions": "Condition",
+        "taskRunners": "Task runner",
+        "charts": "Chart",
+        "apps": "App",
+        "logExporters": "Log exporter",
+        "secrets": "Secret"
+      },
+      "sortBy": "Sort by",
+      "sort": {
+        "nameAsc": "Name A-Z",
+        "nameDesc": "Name Z-A",
+        "newest": "Newest",
+        "mostUsed": "Most used"
+      },
+      "group": {
+        "plugins": "Plugins ({count})",
+        "tasks": "Tasks ({count})",
+        "blueprints": "Blueprints ({count})"
+      },
+      "overview": {
+        "title": "Overview",
+        "versions": "Versions",
+        "latest": "Latest",
+        "releaseNotes": "Release notes",
+        "previousVersions": "Previous versions",
+        "createdBy": "Created by",
+        "managedBy": "Managed by",
+        "pluginType": "Plugin type",
+        "linksResources": "Links & Resources",
+        "minKestraVersion": "Min. compatible Kestra vers.: {version}",
+        "minKestraVersionShort": "Min. Kestra version {version}"
+      },
+      "header": {
+        "enterpriseEdition": "Enterprise Edition",
+        "certified": "Certified",
+        "back": "Back to plugins"
+      }
     },
     "no inputs": "This flow has no inputs.",
+    "admin_preferences": "Preferences",
     "settings": {
       "label": "Settings",
       "blocks": {
@@ -920,6 +1001,8 @@
     "demos": {
       "enterprise_edition": "Enterprise Edition",
       "get_a_demo_button": "Get a Demo",
+      "contact_sales": "Contact Sales",
+      "watch_the_video": "Watch the video",
       "secrets": {
         "title": "Upgrade your Secrets Management",
         "message": "The Enterprise Edition (EE) lets you add, edit, or delete secrets directly in the UI—no instance restarts needed. Organize secrets by namespace with granular RBAC permissions, and inherit them from parent to child namespaces. EE integrates with secrets managers like HashiCorp Vault, AWS Secrets Manager, Azure Key Vault, Google Secret Manager, and Elasticsearch. Set up dedicated backends per namespace, tenant, or instance to isolate secrets across teams, or enable read-only secrets stored in external vaults. Secrets stay encrypted at rest and in transit. Optional caching reduces API calls, and audit trails log all access.",
@@ -1384,6 +1467,7 @@
       "unnamed": "No Name",
       "adding": "+ Add a {what}",
       "adding_default": "+ Add a new value",
+      "add_field": "Add {field}",
       "clearSelection": "Clear selection",
       "labels": {
         "yaml": "YAML Editor",
@@ -1482,7 +1566,7 @@
     "instance": "Instance",
     "something_went_wrong": {
       "loading_execution": "Something went wrong while loading the execution",
-     "connection_lost": {
+      "connection_lost": {
         "title": "Connection interrupted",
         "message": "We couldn't reach your Kestra instance. Make sure it's running, then refresh the page."
       }
@@ -1524,7 +1608,7 @@
         "title": "You have no announcements yet!",
         "content": "Announcements allow you to notify your users about any changes or inform them about planned maintenance downtime. Simply select the announcement type, the date range for which it should be displayed, and write the announcement message."
       },
-       "kill_switches": {
+      "kill_switches": {
         "title": "You have no Kill Switches yet!",
         "content": "The Kill Switch feature provides a UI based mechanism to stop problematic executions. It replaces the CLI-only <code>--skip-executions</code> and <code>--skip-flows</code> commands with a comprehensive administration interface."
       },
@@ -1540,6 +1624,10 @@
         "title": "You have no Assets yet!",
         "content": "Add assets to track and manage your data assets, services, and infrastructure."
       },
+      "apiTokens": {
+        "title": "Manage your API Tokens",
+        "content": "API tokens are used anytime you want to grant programmatic access to the Kestra API."
+      },
       "concurrency_executions": {
         "title": "No ongoing Executions for this Flow.",
         "content": "Read more about <strong><a href=\"https://kestra.io/docs/workflow-components/execution?utm_source=app&utm_medium=referral&utm_campaign=concurrency-inlinedoc\" target=\"_blank\">Executions</a></strong> in our documentation."
@@ -1548,9 +1636,21 @@
         "title": "No limits are set for this Flow.",
         "content": "Read more about <strong><a href=\"https://kestra.io/docs/workflow-components/concurrency?utm_source=app&utm_medium=referral&utm_campaign=concurrency-inlinedoc\" target=\"_blank\">Concurrency Limits</a></strong> in our documentation."
       },
+      "concurrency_limits": {
+        "title": "No concurrency limits are set.",
+        "content": "Read more about <strong><a href=\"https://kestra.io/docs/workflow-components/concurrency?utm_source=app&utm_medium=referral&utm_campaign=concurrency-inlinedoc\" target=\"_blank\">Concurrency Limits</a></strong> in our documentation."
+      },
       "pluginDefaults": {
         "title": "You have no plugin defaults yet!",
         "content": "Plugin Defaults let you centrally govern your plugin configuration and share it with all flows in your namespace."
+      },
+      "workerRegistrationTokens": {
+        "title": "You have no registration tokens yet!",
+        "content": "Registration tokens let remote workers securely authenticate and register with your Kestra instance. Create a token, then use it to connect new workers to this cluster."
+      },
+      "groups": {
+        "title": "You have no groups yet!",
+        "content": "Groups let you bundle users together so you can manage permissions and role bindings collectively across your tenant."
       },
       "dependencies": {
         "FLOW": {
@@ -1577,6 +1677,10 @@
       "triggers": {
         "title": "Your flow doesn't have any Triggers.",
         "content": "Read more about <strong><a href=\"https://kestra.io/docs/workflow-components/triggers?utm_source=app&utm_medium=referral&utm_campaign=trigger-inlinedoc\" target=\"_blank\">Triggers</a></strong> in our documentation."
+      },
+      "mcpToolFlows": {
+        "title": "No tool flows are registered on this server yet.",
+        "content": "Expose a flow as an MCP tool by adding an <code>McpToolTrigger</code> to it. Read more about the <strong><a href=\"https://kestra.io/docs/workflow-components/triggers/mcp-tool-trigger?utm_source=app&utm_medium=referral&utm_campaign=mcp-tool-trigger-inlinedoc\" target=\"_blank\">MCP Tool Trigger</a></strong> in our documentation."
       },
       "versionPlugin": {
         "title": "You have no versioned plugin yet!",
@@ -1714,6 +1818,7 @@
       "flow": {
         "title": "AI Copilot",
         "prompt_placeholder": "Enter instructions to create your Kestra flow. Example prompt: Create a flow that runs every Monday at 9 AM.",
+        "select_provider": "Select a provider",
         "generating": {
           "flow": "Generating Flow YAML for you...",
           "dashboard": "Generating Dashboard YAML for you...",
@@ -1721,8 +1826,8 @@
           "test": "Generating Test YAML for you..."
         },
         "enable_instructions": {
-            "header":"<b>AI Copilot hasn't been configured yet.</b>\n\nTo enable AI Copilot, add the following snippet to your Kestra instance configuration file (e.g. <code>application.yml</code>), replacing <code>geminiApiKey</code> with your actual key:",
-            "footer": "Note: At this time, only Gemini is supported as the AI provider for Open Source Edition. For Enterprise Edition, please refer to the AI Copilot documentation for other model provider configuration.\n\nRestart your Kestra instance after saving the configuration."
+          "header": "<b>AI Copilot hasn't been configured yet.</b>\n\nTo enable AI Copilot, add the following snippet to your Kestra instance configuration file (e.g. <code>application.yml</code>), replacing <code>geminiApiKey</code> with your actual key:",
+          "footer": "Note: At this time, only Gemini is supported as the AI provider for Open Source Edition. For Enterprise Edition, please refer to the AI Copilot documentation for other model provider configuration.\n\nRestart your Kestra instance after saving the configuration."
         }
       },
       "dashboard": {
@@ -1807,150 +1912,207 @@
     "export_as": "Export as .{format}",
     "save_and_execute": "Save & Execute",
     "welcome_copilot": {
-        "button_cta": "Create flow from scratch",
-        "create_manually": {
-            "title": "Create manually",
-            "description": "Build from scratch using the editor"
-        },
-        "docs": {
-            "title": "Read the docs",
-            "description": "Learn more in the official documentation"
-        },
-        "title": "Turn your idea into a workflow",
-        "need_help": "Need Help?",
-        "placeholder_prompt": "Send me a daily greeting message at 9am.",
-        "show_more": "Show more prompts",
-        "show_less": "Show fewer prompts",
-        "remaining_quota": "You have {count} AI generations left. Limit resets daily at midnight UTC.",
-        "execute_hint": {
-          "title": "Save & Execute your flow",
-          "description": "Click to save your workflow and run it immediately."
-        },
-        "success_popup": {
-          "title": "Congratulations!",
-          "description": "You've successfully executed your first flow! You're on your way to becoming a Kestra pro.",
-          "tutorial": "Deep Dive Tutorial",
-          "explore": "Explore More"
-        },
-        "success_page": {
-          "title": "You're all set!",
-          "description": "You've learned the basics of Kestra. Here are some resources to help you continue your journey.",
-          "restart": "Restart Tutorial",
-          "items": {
-            "tutorial": {
-              "title": "Start a Tutorial",
-              "description": "Interactive walkthrough of all Kestra features"
-            },
-            "blueprints": {
-              "title": "Blueprints",
-              "description": "Pre-built workflow templates for common use cases"
-            },
-            "slack": {
-              "title": "Slack Community",
-              "description": "Connect with other users and get help from the community"
-            },
-            "videos": {
-              "title": "Videos Tutorials",
-              "description": "Step-by-step video guides for advanced features"
-            },
-            "demo": {
-              "title": "Get a Demo",
-              "description": "Explore Kestra Enterprise Edition with a personalized demo"
-            }
-          }
-        },
-        "help": {
+      "button_cta": "Create flow from scratch",
+      "create_manually": {
+        "title": "Create manually",
+        "description": "Build from scratch using the editor"
+      },
+      "docs": {
+        "title": "Read the docs",
+        "description": "Learn more in the official documentation"
+      },
+      "title": "Turn your idea into a workflow",
+      "need_help": "Need Help?",
+      "placeholder_prompt": "Send me a daily greeting message at 9am.",
+      "show_more": "Show more prompts",
+      "show_less": "Show fewer prompts",
+      "remaining_quota": "You have {count} AI generations left. Limit resets daily at midnight UTC.",
+      "execute_hint": {
+        "title": "Save & Execute your flow",
+        "description": "Click to save your workflow and run it immediately."
+      },
+      "success_popup": {
+        "title": "Congratulations!",
+        "description": "You've successfully executed your first flow! You're on your way to becoming a Kestra pro.",
+        "tutorial": "Deep Dive Tutorial",
+        "explore": "Explore More"
+      },
+      "success_page": {
+        "title": "You're all set!",
+        "description": "You've learned the basics of Kestra. Here are some resources to help you continue your journey.",
+        "restart": "Restart Tutorial",
+        "items": {
           "tutorial": {
             "title": "Start a Tutorial",
-            "description": "Learn how to create and run your first flow with guidet steps."
+            "description": "Interactive walkthrough of all Kestra features"
           },
           "blueprints": {
             "title": "Blueprints",
-            "description": "Explore ready-to-use examples and templates for common workflow patterns."
+            "description": "Pre-built workflow templates for common use cases"
           },
           "slack": {
             "title": "Slack Community",
-            "description": "Join us to share ideas and best practices, and get help with technical questions."
-          }
-        },
-        "flows": {
-          "jsonApiToDuckdb": {
-            "label": "JSON API to DuckDB",
-            "prompt": "Create a flow that downloads a JSON file from a public API, transforms it with a Python script, and processes it with a DuckDB Queries task."
+            "description": "Connect with other users and get help from the community"
           },
-          "installNginxViaAnsible": {
-            "label": "Install Nginx via Ansible",
-            "prompt": "Create a Kestra flow that installs Nginx on a target machine with Ansible and verifies the installed version."
+          "videos": {
+            "title": "Videos Tutorials",
+            "description": "Step-by-step video guides for advanced features"
           },
-          "buildDbtPipeline": {
-            "label": "Build a dbt pipeline",
-            "prompt": "Create a Kestra flow that clones a dbt project repository and runs dbt build with a DuckDB profile."
-          },
-          "etlWorkflow": {
-            "label": "ETL Workflow",
-            "prompt": "Create an ETL flow that downloads JSON data, processes it with Python, and queries the transformed result with DuckDB."
-          },
-          "microservicesApis": {
-            "label": "Microservices & APIs",
-            "prompt": "Create a flow that checks a website API response and sends a Slack alert when the status code is not successful."
-          },
-          "buildDockerImageAndRunIt": {
-            "label": "Build a Docker image and run it",
-            "prompt": "Create a Kestra flow that builds a Docker image from an inline Dockerfile and runs the resulting container."
-          },
-          "manualApproval": {
-            "label": "Manual approval",
-            "prompt": "Create a flow with an initial processing step, a manual approval pause, and a final deployment step after approval."
-          },
-          "convertCsvToExcel": {
-            "label": "Convert a CSV to Excel",
-            "prompt": "Create a flow that downloads a CSV file, converts it to Ion, and exports the result as an Excel file."
-          },
-          "scheduledPdfReports": {
-            "label": "Scheduled PDF reports",
-            "prompt": "Create a scheduled flow that downloads a PDF report and sends a Slack notification when the report is ready."
-          },
-          "weeklySalesKpisToSlack": {
-            "label": "Weekly Sales KPIs to Slack",
-            "prompt": "Create a weekly scheduled flow that calculates sales KPIs with DuckDB and posts the summary to Slack."
+          "demo": {
+            "title": "Get a Demo",
+            "description": "Explore Kestra Enterprise Edition with a personalized demo"
           }
         }
       },
-    "mcp": {
-        "servers": "MCP Servers",
-        "server": "MCP Server",
-        "page_description": "Expose your Kestra flows as tools for MCP-compatible AI agents",
-        "create": "Create Server",
-        "save": "Save Changes",
-        "connect": "Connect",
-        "copy_url": "Copy URL",
-        "url_copied": "URL copied!",
-        "instructions": "Instructions",
-        "server_type": "Server Type",
-        "auth_type": "Authentication",
-        "private": "Private",
-        "public": "Public",
-        "basic_auth": "Basic Auth",
-        "api_token": "API Token",
-        "username_password": "Username & password",
-        "bearer_token": "Bearer token authentication",
-        "delete_confirm": "Are you sure you want to delete this MCP server?",
-        "no_servers": "No MCP servers found. Create your first server to expose MCP Tool triggers to external AI agents.",
-        "connect_modal": {
-            "title": "Connect to {name}",
-            "server_url": "Server URL",
-            "claude_desktop": "Claude Desktop",
-            "claude_desktop_hint": "Add the following to your claude_desktop_config.json file:",
-            "claude_desktop_mac": "macOS: ~/Library/Application Support/Claude/claude_desktop_config.json",
-            "claude_desktop_win": "Windows: %APPDATA%\\Claude\\claude_desktop_config.json",
-            "claude_code": "Claude Code",
-            "claude_code_hint": "Run the following command in your terminal:",
-            "cursor": "Cursor",
-            "cursor_hint": "Add the following to ~/.cursor/mcp.json:",
-            "codex": "Codex (OpenAI)",
-            "codex_hint": "Add the following to your codex.json MCP configuration:",
-            "done": "Done"
+      "help": {
+        "tutorial": {
+          "title": "Start a Tutorial",
+          "description": "Learn how to create and run your first flow with guidet steps."
+        },
+        "blueprints": {
+          "title": "Blueprints",
+          "description": "Explore ready-to-use examples and templates for common workflow patterns."
+        },
+        "slack": {
+          "title": "Slack Community",
+          "description": "Join us to share ideas and best practices, and get help with technical questions."
         }
+      },
+      "flows": {
+        "jsonApiToDuckdb": {
+          "label": "JSON API to DuckDB",
+          "prompt": "Create a flow that downloads a JSON file from a public API, transforms it with a Python script, and processes it with a DuckDB Queries task."
+        },
+        "installNginxViaAnsible": {
+          "label": "Install Nginx via Ansible",
+          "prompt": "Create a Kestra flow that installs Nginx on a target machine with Ansible and verifies the installed version."
+        },
+        "buildDbtPipeline": {
+          "label": "Build a dbt pipeline",
+          "prompt": "Create a Kestra flow that clones a dbt project repository and runs dbt build with a DuckDB profile."
+        },
+        "etlWorkflow": {
+          "label": "ETL Workflow",
+          "prompt": "Create an ETL flow that downloads JSON data, processes it with Python, and queries the transformed result with DuckDB."
+        },
+        "microservicesApis": {
+          "label": "Microservices & APIs",
+          "prompt": "Create a flow that checks a website API response and sends a Slack alert when the status code is not successful."
+        },
+        "buildDockerImageAndRunIt": {
+          "label": "Build a Docker image and run it",
+          "prompt": "Create a Kestra flow that builds a Docker image from an inline Dockerfile and runs the resulting container."
+        },
+        "manualApproval": {
+          "label": "Manual approval",
+          "prompt": "Create a flow with an initial processing step, a manual approval pause, and a final deployment step after approval."
+        },
+        "convertCsvToExcel": {
+          "label": "Convert a CSV to Excel",
+          "prompt": "Create a flow that downloads a CSV file, converts it to Ion, and exports the result as an Excel file."
+        },
+        "scheduledPdfReports": {
+          "label": "Scheduled PDF reports",
+          "prompt": "Create a scheduled flow that downloads a PDF report and sends a Slack notification when the report is ready."
+        },
+        "weeklySalesKpisToSlack": {
+          "label": "Weekly Sales KPIs to Slack",
+          "prompt": "Create a weekly scheduled flow that calculates sales KPIs with DuckDB and posts the summary to Slack."
+        }
+      }
+    },
+    "mcp": {
+      "servers": "MCP Servers",
+      "server": "MCP Server",
+      "page_description": "Expose your Kestra flows as tools for MCP-compatible AI agents",
+      "create": "Create Server",
+      "save": "Save Changes",
+      "connect": "Connect",
+      "copy_url": "Copy URL",
+      "url_copied": "URL copied!",
+      "instructions": "Instructions",
+      "server_type": "Server Type",
+      "auth_type": "Authentication",
+      "private": "Private",
+      "public": "Public",
+      "basic_auth": "Basic Auth",
+      "api_token": "API Token",
+      "oauth": "OAuth",
+      "username_password": "Username & password",
+      "bearer_token": "Bearer token authentication",
+      "oauth_hint": "Bearer JWT from your OIDC provider",
+      "oauth_provider": "OAuth Provider",
+      "oauth_provider_placeholder": "Select a configured OIDC provider",
+      "oauth_provider_required": "OAuth provider is required when authentication type is OAuth",
+      "scopes_supported": "Supported scopes",
+      "scopes_supported_placeholder": "openid, profile, email",
+      "scopes_supported_hint": "Scopes advertised in this server's Protected Resource Metadata document. Spec-compliant MCP clients constrain their authorize request to this list. Leave empty to omit the field and let clients fall back to the IdP's advertised scopes.",
+      "no_oauth_providers": "No OIDC providers configured in this instance",
+      "delete_confirm": "Are you sure you want to delete this MCP server?",
+      "no_servers": "No MCP servers found. Create your first server to expose MCP Tool triggers to external AI agents.",
+      "id_placeholder": "e.g. my-mcp-server",
+      "id_invalid": "ID must start with a lowercase letter or digit, and contain only lowercase letters, digits, hyphens, or underscores",
+      "main_tenant": "main",
+      "tab_edit": "Edit",
+      "tab_connect": "Connect",
+      "tab_tool_flows": "Tool Flows",
+      "tab_tool_flows_placeholder": "Tool flows management is coming soon.",
+      "tools": {
+        "no_tools": "No tool flows match your search.",
+        "create_tool_flow": "Create a tool flow",
+        "tool_name": "Tool Name",
+        "trigger_id": "Trigger ID",
+        "title": "Title",
+        "description": "Description",
+        "annotations": "Annotations",
+        "flow": "Flow",
+        "state": "State",
+        "read_only": "Read-only",
+        "open_world": "Open world",
+        "destructive": "Destructive",
+        "idempotent": "Idempotent",
+        "return_direct": "Return direct",
+        "view_flow": "Open flow"
+      },
+      "connect_tab": {
+        "server_url": "Server URL",
+        "client_picker_label": "Choose your AI client",
+        "claude_desktop": "Claude Desktop",
+        "claude_desktop_hint": "Add the following to your claude_desktop_config.json file:",
+        "claude_desktop_mac": "macOS: ~/Library/Application Support/Claude/claude_desktop_config.json",
+        "claude_desktop_win": "Windows: %APPDATA%\\Claude\\claude_desktop_config.json",
+        "claude_code": "Claude Code",
+        "claude_code_hint": "Run the following command in your terminal:",
+        "cursor": "Cursor",
+        "cursor_hint": "Add the following to ~/.cursor/mcp.json:",
+        "codex": "Codex (OpenAI)",
+        "codex_hint": "Add the following to ~/.codex/config.toml:",
+        "auth_basic_hint": "Set <code>KESTRA_BASIC_AUTH</code> as an environment variable containing a base64-encoded <code>username:password</code> string before starting the client.",
+        "auth_api_token_hint": "Set <code>KESTRA_TOKEN</code> as an environment variable before starting the client.",
+        "auth_oauth_client_id_hint": "Replace <code>&lt;client-id&gt;</code> with the OAuth client ID, and register <code>http://localhost:7777</code> as a valid redirect URI on that client.",
+        "auth_oauth_browser_hint": "Your browser will open the identity provider's login page on first connection."
+      }
+    },
+    "flow_editor_stats": {
+      "revisions": {
+        "suffix": "Revision(s)",
+        "tooltip": "View flow revisions"
+      },
+      "dependencies": {
+        "suffix": "Dependencies",
+        "tooltip": "View flow dependencies"
+      },
+      "apps": {
+        "suffix": "App(s)",
+        "tooltip": "View apps using this flow"
+      },
+      "tests": {
+        "suffix": "Test(s)",
+        "tooltip": "View flow tests"
+      },
+      "errors": {
+        "label": "{count} Error(s)"
+      }
     }
   }
 }

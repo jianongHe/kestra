@@ -43,7 +43,8 @@ test.describe("Flow Page", () => {
 
             await page.getByRole("button", {name: "Save", exact: true}).click()
             await expect(page.getByRole("heading", {name: "Successfully saved"})).toBeVisible()
-            await page.getByRole("link", {name: "Overview"}).click()
+            await page.locator(".tab-select").click()
+            await page.getByRole("option", {name: "Overview"}).click()
         })
 
         await test.step("execute the flow", async () => {
@@ -76,12 +77,13 @@ test.describe("Flow Page", () => {
             await monacoEditor.clear({force: true})
             await expect(page.getByTestId("monaco-editor").getByText("Hello World")).not.toBeVisible()
             await monacoEditor.fill(flowYaml, {force: true})
-            await page.getByRole("button", {name: "Actions"}).click()
+            await monacoEditor.blur()
             await expect(page.getByTestId("monaco-editor").getByText(flowId)).toBeVisible()
 
             await page.getByRole("button", {name: "Save", exact: true}).click()
             await expect(page.getByRole("heading", {name: "Successfully saved"})).toBeVisible()
-            await page.getByRole("link", {name: "Overview"}).click()
+            await page.locator(".tab-select").click()
+            await page.getByRole("option", {name: "Overview"}).click()
             await expect(page.locator("#app").getByText(flowId)).toBeVisible()
         })
 

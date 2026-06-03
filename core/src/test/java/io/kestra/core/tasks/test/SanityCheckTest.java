@@ -14,7 +14,7 @@ import jakarta.inject.Inject;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-@KestraTest(startRunner = true)
+@KestraTest(startRunner = true, startSystemWorker = true)
 class SanityCheckTest {
     @Inject
     private TaskOutputService taskOutputService;
@@ -118,6 +118,19 @@ class SanityCheckTest {
     @ExecuteFlow("sanity-checks/output_values.yaml")
     void qaOutputValues(Execution execution) {
         assertThat(execution.getTaskRunList()).hasSize(2);
+        assertThat(execution.getState().getCurrent()).isEqualTo(State.Type.SUCCESS);
+    }
+
+    @Test
+    @ExecuteFlow("sanity-checks/ion_binary.yaml")
+    void qaIonBinary(Execution execution) {
+        assertThat(execution.getState().getCurrent()).isEqualTo(State.Type.SUCCESS);
+    }
+
+    @Test
+    @ExecuteFlow("sanity-checks/purge_storage.yaml")
+    void qaPurgeStorage(Execution execution) {
+        assertThat(execution.getTaskRunList()).hasSize(5);
         assertThat(execution.getState().getCurrent()).isEqualTo(State.Type.SUCCESS);
     }
 }

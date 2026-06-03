@@ -1,14 +1,14 @@
 <template>
     <div
         class="node-wrapper"
-        :style="{borderColor: state ? `var(--ks-border-${state.toLowerCase()})` : undefined}"
+        :style="{borderColor}"
         :class="{...classes, 'running-border-animation': state === 'RUNNING'}"
         @mouseover="mouseover"
         @mouseleave="mouseleave"
     >
         <div class="main-content">
             <div class="icon">
-                <component :is="iconComponent || TaskIcon" :cls="cls" :class="taskIconBg" class="bg-white" theme="light" :icons="icons" />
+                <component :is="iconComponent || TaskIcon" :cls="cls" :class="taskIconBg" theme="light" variable="--ks-topology-icon-color" :icons="icons" />
             </div>
             <div class="node-content">
                 <div class="node-title">
@@ -47,7 +47,7 @@
                     @click="$emit(EVENTS.EXPAND)"
                 >
                     <KsTooltip :content="$t('expand')">
-                        <ArrowExpand class="button-icon" alt="Expand task" />
+                        <UnfoldMoreHorizontal class="button-icon" alt="Expand task" />
                     </KsTooltip>
                 </span>
                 <slot name="badge-button-after" />
@@ -63,7 +63,7 @@
     import {KsTooltip} from "@kestra-io/design-system"
     import InformationOutline from "vue-material-design-icons/InformationOutline.vue"
     import {EVENTS} from "../utils/constants"
-    import ArrowExpand from "vue-material-design-icons/ArrowExpand.vue"
+    import UnfoldMoreHorizontal from "vue-material-design-icons/UnfoldMoreHorizontal.vue"
     import OpenInNew from "vue-material-design-icons/OpenInNew.vue"
     import * as Utils from "../utils/utils"
 
@@ -108,6 +108,12 @@
 
     const expandable = computed(() => props.data?.expandable || false)
 
+    const borderColor = computed(() => {
+        if (!props.state) return undefined
+        const status = props.state.toLowerCase()
+        return status === "failed" ? "var(--ks-status-error)" : `var(--ks-border-${status})`
+    })
+
     const node = computed(() => {
         return props.data.node?.plugin ?? props.data.node?.task ?? props.data.node?.trigger ?? null
     })
@@ -151,12 +157,12 @@
 
 <style lang="scss" scoped>
     .node-wrapper {
-        background-color: var(--ks-background-card);
-        border-radius: var(--ks-border-radius-lg);
+        background-color: var(--ks-bg-surface);
+        border-radius: var(--ks-radius-base);
         margin: 0;
         z-index: 150000;
-        box-shadow: 0 12px 12px 0 rgba(130, 103, 158, 0.10);
-        border: 1px solid var(--ks-border-primary);
+        box-shadow: 0 2px 4px var(--ks-shadow-surface);
+        border: 1px solid var(--ks-border-strong);
 
         .main-content {
             display: flex;
@@ -167,24 +173,26 @@
         }
 
         &.execution-no-taskrun, &.disabled {
-            background-color: var(--ks-background-card);
+            background-color: var(--ks-bg-surface);
         }
 
         &.disabled {
             .task-title {
-                color: var(--ks-content-secondary);
+                color: var(--ks-text-secondary);
                 text-decoration: line-through;
             }
         }
 
         .icon {
-            border-radius: var(--ks-border-radius);
-            margin: 0.2rem;
+            border-radius: var(--ks-radius-sm);
+            margin: var(--ks-spacing-1);
             width: 25px;
             height: 25px;
-            border: 0.4px solid var(--ks-border-primary);
             min-width: 25px;
             min-height: 25px;
+            padding: 2px;
+            border: 1px solid var(--ks-border-default);
+            background-color: var(--ks-topology-icon-bg);
         }
     }
 
@@ -211,7 +219,7 @@
 
     .description-button {
         margin-left: 0.5rem;
-        color: var(--ks-content-secondary);
+        color: var(--ks-icon-muted);
         cursor: pointer;
     }
 
@@ -222,15 +230,16 @@
 
     .button-icon {
         font-size: 0.75rem;
+        transform: rotate(45deg);
     }
 
     .task-title {
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
-        font-size: 0.75rem;
-        font-weight: 700;
-        color: var(--ks-content-primary);
+        font-size: var(--ks-font-size-sm);
+        font-weight: 500;
+        color: var(--ks-text-primary);
         flex-grow: 1;
     }
 
@@ -254,12 +263,12 @@
             bottom: -1px;
             border-radius: .55rem;
             background: conic-gradient(from calc(var(--border-angle-running)) at 50% 50%,
-                var(--ks-border-running) 0%,
-                var(--ks-border-running) 10%,
+                var(--ks-status-border-running) 0%,
+                var(--ks-status-border-running) 10%,
                 var(--ks-border-primary) 40%,
                 var(--ks-border-primary) 60%,
-                var(--ks-border-running) 90%,
-                var(--ks-border-running) 100%);
+                var(--ks-status-border-running) 90%,
+                var(--ks-status-border-running) 100%);
             animation: running-border 3s linear infinite;
         }
     }

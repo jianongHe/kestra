@@ -21,25 +21,19 @@
                                 :label="$t('revision') + ' '+ item.text"
                                 :value="item.value"
                             >
-                                <span>{{ $t("revision") + " " + item.text }}</span>
-                                <span>
+                                <div class="revision-label">
+                                    <span>{{ $t("revision") + " " + item.text }}</span>
                                     <KsTag v-if="item.isDraft" size="small">
                                         <CircleOpacity />
                                         {{ $t('draft') }}
                                     </KsTag>
-                                </span>
-                                <span class="revision-timestamp">
-                                    <KsDateAgo :date="item.timestamp" />
-                                </span>
-
-                                <span>
-                                    <KsButton
-                                        :icon="TrashCanOutline"
-                                        size="small"
-                                        @click="onDelete(item.value)"
-                                        v-if="item.value !== undefined && currentRevision !== revisionNumber(item.value)"
-                                    />
-                                </span>
+                                    <KsDateAgo class="revision-timestamp" :date="item.timestamp" />
+                                </div>
+                                <TrashCanOutline
+                                    @mousedown.stop.prevent
+                                    @click.stop.prevent="onDelete(item.value)"
+                                    v-if="item.value !== undefined && currentRevision !== revisionNumber(item.value)"
+                                />
                             </KsOption>
                         </KsSelect>
                         <KsTag size="large" v-if="revisionObject(revisionLeftIndex)?.draft">
@@ -72,25 +66,19 @@
                                 :label="$t('revision') + ' '+ item.text"
                                 :value="item.value"
                             >
-                                <span>{{ $t("revision") + " " + item.text }}</span>
-                                <span>
+                                <div class="revision-label">
+                                    <span>{{ $t("revision") + " " + item.text }}</span>
                                     <KsTag v-if="item.isDraft" size="small">
                                         <CircleOpacity />
                                         {{ $t('draft') }}
                                     </KsTag>
-                                </span>
-                                <span class="revision-timestamp">
-                                    <KsDateAgo :date="item.timestamp" />
-                                </span>
-
-                                <span>
-                                    <KsButton
-                                        :icon="TrashCanOutline"
-                                        size="small"
-                                        @click="onDelete(item.value)"
-                                        v-if="item.value !== undefined && currentRevision !== revisionNumber(item.value)"
-                                    />
-                                </span>
+                                    <KsDateAgo class="revision-timestamp" :date="item.timestamp" />
+                                </div>
+                                <TrashCanOutline
+                                    @mousedown.stop.prevent
+                                    @click.stop.prevent="onDelete(item.value)"
+                                    v-if="item.value !== undefined && currentRevision !== revisionNumber(item.value)"
+                                />
                             </KsOption>
                         </KsSelect>
                         <KsTag size="large" v-if="revisionObject(revisionRightIndex)?.draft">
@@ -115,10 +103,11 @@
             </KsCol>
         </KsRow>
 
-        <Editor
+        <KsEditor
+            v-bind="editorBindings"
             class="mt-1"
             v-if="revisionLeftText !== undefined && revisionRightText !== undefined && !isLoadingRevisions"
-            :diffSideBySide="sideBySide"
+            :options="{diffSideBySide: sideBySide}"
             :modelValue="revisionRightText"
             :original="revisionLeftText"
             readOnly
@@ -131,7 +120,7 @@
         </div>
     </div>
     <div v-else>
-        <KsAlert class="mb-0" showIcon :closable="false">
+        <KsAlert class="mb-0" :closable="false">
             {{ $t("no revisions found") }}
         </KsAlert>
     </div>
@@ -143,7 +132,8 @@
     import {useRoute, useRouter} from "vue-router"
     import Restore from "vue-material-design-icons/Restore.vue"
     import TrashCanOutline from "vue-material-design-icons/TrashCanOutline.vue"
-    import Editor from "../../components/inputs/Editor.vue"
+    import {KsEditor} from "@kestra-io/design-system"
+    import {useEditorBindings} from "../../composables/useEditorBindings"
     import moment from "moment"
 
     import {useToast} from "../../utils/toast"
@@ -151,6 +141,8 @@
     import CircleOpacity from "vue-material-design-icons/CircleOpacity.vue"
 
     const flowStore = useFlowStore()
+
+    const editorBindings = useEditorBindings()
 
     export interface Revision {
         revision: number;
@@ -435,6 +427,19 @@
         flex-shrink: 0;
         white-space: nowrap;
     }
+
+    .revision-option {
+        min-width: 350px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+
+        .revision-label {
+            display: flex;
+            gap: var(--ks-spacing-2);
+        }
+    }
+
 
     .revision-number {
         font-weight: 500;

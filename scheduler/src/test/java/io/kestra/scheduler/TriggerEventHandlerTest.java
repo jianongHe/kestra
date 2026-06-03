@@ -353,6 +353,32 @@ class TriggerEventHandlerTest {
     }
 
     @Test
+    void shouldPreserveCurrentDateGivenAdvancedBackfillWhenPaused() {
+        // GIVEN: a backfill that has progressed past its start date
+        ZonedDateTime start = ZonedDateTime.now(CLOCK).minusDays(10);
+        ZonedDateTime end = ZonedDateTime.now(CLOCK);
+        ZonedDateTime advanced = start.plusDays(4);
+        Backfill backfill = Backfill.builder()
+            .start(start)
+            .end(end)
+            .currentDate(advanced)
+            .paused(false)
+            .build();
+        triggerStateStore.save(triggerState.backfill(CLOCK, backfill));
+        handler = newTriggerEventHandler(List.of());
+        SetPauseBackfillTrigger event = new SetPauseBackfillTrigger(triggerId, true);
+
+        // WHEN
+        handler.handle(CLOCK, TEST_VNODE, event);
+
+        // THEN: currentDate is preserved (progress bar must not reset)
+        Optional<TriggerState> updated = triggerStateStore.findById(triggerId);
+        assertThat(updated).get()
+            .extracting(t -> t.getBackfill().getCurrentDate())
+            .isEqualTo(advanced);
+    }
+
+    @Test
     void shouldCompleteTriggerGivenTriggerCompletedEventWhenHandled() {
         // GIVEN
         triggerStateStore.save(triggerState);
@@ -390,6 +416,78 @@ class TriggerEventHandlerTest {
 
         // THEN
         assertThat(triggerExecutionPublisher.executions().size()).isEqualTo(1);
+    }
+
+    @Test
+    void shouldPersistExecutionIdGivenNonConcurrentTriggerWhenEvaluated() {
+        // GIVEN — default flow's Schedule trigger is non-concurrent (allowConcurrent=false by default)
+        triggerStateStore.save(triggerState);
+        handler = newTriggerEventHandler(List.of(Fixtures.defaultFlow()));
+        String executionId = IdUtils.create();
+        TriggerEvaluated event = new TriggerEvaluated(
+            triggerId, new TriggerEvaluationResult(
+                executionId,
+                State.Type.CREATED,
+                null,
+                null,
+                null,
+                null,
+                null
+            )
+        );
+
+        // WHEN
+        handler.handle(CLOCK, TEST_VNODE, event);
+
+        // THEN
+        Optional<TriggerState> updated = triggerStateStore.findById(triggerId);
+        assertThat(updated).isPresent();
+        assertThat(updated.get().getExecutionId()).isEqualTo(executionId);
+    }
+
+    @Test
+    void shouldNotPersistExecutionIdGivenConcurrentTriggerWhenEvaluated() {
+        // GIVEN — a flow whose trigger explicitly allows concurrent executions
+        triggerStateStore.save(triggerState);
+        handler = newTriggerEventHandler(
+            List.of(Fixtures.defaultFlow(build -> build.allowConcurrent(true).build()))
+        );
+        TriggerEvaluated event = new TriggerEvaluated(
+            triggerId, new TriggerEvaluationResult(
+                IdUtils.create(),
+                State.Type.CREATED,
+                null,
+                null,
+                null,
+                null,
+                null
+            )
+        );
+
+        // WHEN
+        handler.handle(CLOCK, TEST_VNODE, event);
+
+        // THEN
+        Optional<TriggerState> updated = triggerStateStore.findById(triggerId);
+        assertThat(updated).isPresent();
+        assertThat(updated.get().getExecutionId()).isNull();
+    }
+
+    @Test
+    void shouldClearExecutionIdGivenExecutionTerminatedWhenHandled() {
+        // GIVEN — a locked trigger that already holds a locking execution id
+        triggerStateStore.save(triggerState.locked(CLOCK, true).executionId(CLOCK, "exec-123"));
+        handler = newTriggerEventHandler(List.of());
+        TriggerExecutionTerminated event = new TriggerExecutionTerminated(triggerId, "exec-123", State.Type.SUCCESS);
+
+        // WHEN
+        handler.handle(CLOCK, TEST_VNODE, event);
+
+        // THEN
+        Optional<TriggerState> updated = triggerStateStore.findById(triggerId);
+        assertThat(updated).isPresent();
+        assertThat(updated.get().isLocked()).isFalse();
+        assertThat(updated.get().getExecutionId()).isNull();
     }
 
     @Test

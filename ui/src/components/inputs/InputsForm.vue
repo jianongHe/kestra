@@ -12,9 +12,10 @@
             <template #label>
                 <KsMarkdown :content="input.displayName ? input.displayName : input.id" class="d-inline-flex md-label" />
             </template>
-            <Editor
-                :fullHeight="false"
-                :input="true"
+            <KsEditor
+                v-bind="editorBindings"
+                :options="{fullHeight: false}"
+                :inline="true"
                 :navbar="false"
                 v-if="input.type === 'STRING' || input.type === 'URI' || input.type === 'EMAIL'"
                 :data-testid="`input-form-${input.id}`"
@@ -35,12 +36,12 @@
                 clearable
             >
                 <KsOption
-                    v-for="item in input.values"
-                    :key="item"
-                    :label="item"
-                    :value="item"
+                    v-for="item in (input.values ?? []).map(toOption)"
+                    :key="item.value"
+                    :label="item.label"
+                    :value="item.value"
                 >
-                    <KsMarkdown :content="item" />
+                    <KsMarkdown :content="item.label" />
                 </KsOption>
             </KsSelect>
             <KsRadioGroup
@@ -49,7 +50,7 @@
                 v-model="inputsValues[input.id]"
                 @update:model-value="onChange(input)"
             >
-                <KsRadio v-for="item in input.values" :key="item" :label="item" :value="item" />
+                <KsRadio v-for="item in (input.values ?? []).map(toOption)" :key="item.value" :label="item.label" :value="item.value" />
                 <KsInput
                     v-if="input.allowCustomValue"
                     v-model="inputsValues[input.id]"
@@ -71,12 +72,12 @@
                 :allowCreate="input.allowCustomValue"
             >
                 <KsOption
-                    v-for="item in (input.values ?? input.options)"
-                    :key="item"
-                    :label="item"
-                    :value="item"
+                    v-for="item in ((input.values ?? input.options) ?? []).map(toOption)"
+                    :key="item.value"
+                    :label="item.label"
+                    :value="item.value"
                 >
-                    <KsMarkdown :content="item" />
+                    <KsMarkdown :content="item.label" />
                 </KsOption>
             </KsSelect>
             <KsInput
@@ -181,7 +182,7 @@
                                 v-model="editableItems[input.id][index]"
                                 class="array-cell"
                             />
-                            <KsButton @click="removeArrayItem(input, index)" :icon="DeleteOutline" class="delete-input" />
+                            <KsButton @click="removeArrayItem(input, index)" :icon="DeleteOutline" class="delete-input" :tooltip="$t('remove this item')" />
                             <div class="d-flex flex-column controls-input">
                                 <ChevronUp @click="moveArrayItem(input, 'up', index)" />
                                 <ChevronDown @click="moveArrayItem(input, 'down', index)" />
@@ -206,19 +207,20 @@
                     </div>
                 </div>
             </div>
-            <Editor
-                :fullHeight="false"
-                :input="true"
+            <KsEditor
+                v-bind="editorBindings"
+                :options="{fullHeight: false, showScroll: inputsValues[input.id]?.length > 530}"
+                :inline="true"
                 :navbar="false"
                 v-if="input.type === 'JSON'"
-                :showScroll="inputsValues[input.id]?.length > 530 ? true : false"
                 :data-testid="`input-form-${input.id}`"
                 lang="json"
                 v-model="inputsValues[input.id]"
             />
-            <Editor
-                :fullHeight="false"
-                :input="true"
+            <KsEditor
+                v-bind="editorBindings"
+                :options="{fullHeight: false}"
+                :inline="true"
                 :navbar="false"
                 v-if="input.type === 'YAML'"
                 :data-testid="`input-form-${input.id}`"
@@ -238,24 +240,22 @@
         </div>
     </template>
 
-    <KsAlert type="info" :showIcon="true" :closable="false" class="mb-3" v-else>
+    <KsAlert type="info" :closable="false" class="mb-3" v-else>
         {{ $t("no inputs") }}
     </KsAlert>
 </template>
 
 <script setup lang="ts">
-    import {KsMessage} from "@kestra-io/design-system"
+    import moment from "moment-timezone"
+    import {KsMessage, KsEditor} from "@kestra-io/design-system"
     import type {FormItemRule} from "@kestra-io/design-system"
     import ValidationError from "../flows/ValidationError.vue"
     import {ref, reactive, computed, watch, onMounted, onBeforeUnmount, toRaw, markRaw, type Component, getCurrentInstance} from "vue"
     import {Execution, useExecutionsStore} from "../../stores/executions"
     import {useI18n} from "vue-i18n"
     import debounce from "lodash/debounce"
-    import Editor from "../../components/inputs/Editor.vue"
-    import {KsMarkdown} from "@kestra-io/design-system"
+    import {useEditorBindings} from "../../composables/useEditorBindings"
     import {normalize, type InputType} from "../../utils/inputs"
-
-    // @ts-expect-error no types for it yet
     import {inputsToFormData} from "../../utils/submitTask"
     import DeleteOutlineIcon from "vue-material-design-icons/DeleteOutline.vue"
     import PencilIcon from "vue-material-design-icons/Pencil.vue"
@@ -269,6 +269,8 @@
         message: string;
     }
 
+    type ValueOptionLike = string | {label: string; value: string};
+
     interface InputMetaData {
         id: string;
         type: InputType
@@ -277,8 +279,8 @@
         required?: boolean;
         defaults?: unknown;
         value?: unknown;
-        values?: string[];
-        options?: string[];
+        values?: ValueOptionLike[];
+        options?: ValueOptionLike[];
         errors?: InputError[];
         isDefault?: boolean;
         isRadio?: boolean;
@@ -288,6 +290,10 @@
         allowedFileExtensions?: string[];
         accept?: string;
         prefill?: unknown;
+    }
+
+    function toOption(item: ValueOptionLike): {label: string; value: string} {
+        return typeof item === "string" ? {label: item, value: item} : item
     }
 
     interface SelectedTrigger {
@@ -341,6 +347,7 @@
     const executionsStore = useExecutionsStore()
     const {t} = useI18n()
     const instance = getCurrentInstance()
+    const editorBindings = useEditorBindings()
 
     // Reactive state
     // Using 'any' type for v-model compatibility with various Element Plus components
@@ -527,7 +534,7 @@
 
         const inputsValuesNoDefault = inputsValuesWithNoDefault()
 
-        const formData = inputsToFormData(instance?.proxy, inputsMetaData.value, inputsValuesNoDefault)
+        const formData = inputsToFormData({$moment: moment}, inputsMetaData.value, inputsValuesNoDefault)
 
         const metadataCallback = (response: ValidationResponse): void => {
             emit("update:checks", response.checks || [])
@@ -767,13 +774,13 @@
 
 .hint {
     font-size: var(--ks-font-size-xs);
-    color: var(--ks-content-secondary);
+    color: var(--ks-text-secondary);
 }
 
 .text-description {
     width: 100%;
     font-size: var(--ks-font-size-xs);
-    color: var(--ks-content-secondary);
+    color: var(--ks-text-secondary);
 }
 
 :deep(.boolean-inputs) {
@@ -783,24 +790,24 @@
     .kel-radio-button {
         &.is-active {
             .kel-radio-button__original-radio:not(:disabled) + .kel-radio-button__inner {
-                color: var(--ks-content-primary);
-                background-color: var(--ks-button-background-secondary-active);
-                box-shadow: 0 0 0 0 var(--ks-border-active);
+                color: var(--ks-text-primary);
+                background-color: var(--ks-btn-secondary-bg-active);
+                box-shadow: 0 0 0 0 var(--ks-border-focus);
             }
         }
 
         .kel-radio-button__inner {
-            border: var(--ks-border-primary);
+            border: var(--ks-border-default);
             transition: 0.3s ease-in-out;
 
             &:hover {
-                color: var(--ks-content-secondary);
-                border-color: var(--ks-border-active);
-                background-color: var(--ks-background-card);
+                color: var(--ks-text-secondary);
+                border-color: var(--ks-border-focus);
+                background-color: var(--ks-bg-surface);
             }
 
             &:first-child {
-                border-left: var(--ks-border-primary);
+                border-left: var(--ks-border-default);
             }
         }
     }
@@ -827,8 +834,8 @@
 
     .tags {
         flex: 1;
-        background: var(--ks-background-input);
-        border: 1px solid var(--ks-border-primary);
+        background: var(--ks-bg-input);
+        border: 1px solid var(--ks-border-default);
         border-radius: 4px;
         display: flex;
         flex-wrap: wrap;
@@ -840,8 +847,8 @@
             display: inline-flex;
             align-items: center;
             border-radius: 4px;
-            background-color: var(--ks-tag-background);
-            color: var(--ks-content-tag);
+            background-color: var(--ks-bg-tag);
+            color: var(--ks-text-primary);
         }
     }
 }
@@ -854,7 +861,7 @@
         .array-cell {
             :deep(.kel-input__wrapper) {
                 box-shadow: none;
-                border: 1px solid var(--ks-border-primary);
+                border: 1px solid var(--ks-border-default);
                 border-radius: 5px;
             }
 
@@ -875,11 +882,11 @@
             transform: translateY(-50%);
             padding: 4px;
             border: none;
-            color: var(--ks-content-secondary);
+            color: var(--ks-text-secondary);
             background: transparent;
 
             &:hover {
-                color: var(--ks-content-error);
+                color: var(--ks-status-error);
             }
         }
 
@@ -889,20 +896,20 @@
             top: 50%;
             transform: translateY(-50%);
             padding: 3px;
-            border-left: 1px solid var(--ks-border-primary);
-            color: var(--ks-content-secondary);
+            border-left: 1px solid var(--ks-border-default);
+            color: var(--ks-text-secondary);
             background: transparent;
         }
     }
 
     .add-new {
         padding: 5px 8px;
-        color: var(--ks-content-tertiary);
+        color: var(--ks-text-dim);
         font-size: var(--ks-font-size-sm);
         background: none;
 
         &:hover {
-            color: var(--ks-content-secondary);
+            color: var(--ks-text-secondary);
         }
     }
 }
@@ -911,8 +918,8 @@
     &:has(.edit_input) {
         padding: 1rem;
         border-radius: 8px;
-        border: 1px solid var(--ks-border-primary);
-        background-color: var(--ks-dropdown-background-active);
+        border: 1px solid var(--ks-border-default);
+        background-color: var(--ks-bg-active);
     }
 }
 
@@ -951,7 +958,7 @@
 
   .file-placeholder {
     margin-left: 8px;
-    color: var(--ks-content-secondary) !important;
+    color: var(--ks-text-secondary) !important;
     font-size: 0.9em;
     flex: 1;
     max-width: calc(100% - 140px); /* 110px for button + 30px for margins/padding */

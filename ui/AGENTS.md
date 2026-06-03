@@ -23,11 +23,11 @@ Under the hood, the design system wraps Element Plus under the `kel` namespace a
 These rules are what keep the UI maintainable as it grows. Treat any deviation as a bug.
 
 1. **Use a `Ks*` component if one exists.** Check the tables below before writing anything custom or importing from `element-plus`. New screens that mix `<el-button>` and `<KsButton>` are a regression.
-2. **Colors come from `--ks-*` tokens. Always.** No hex codes, no `rgb(...)`, no Element Plus tokens (`--el-*`), no Bootstrap variables, no SCSS color variables in component code. If the token you need does not exist, talk to design and add it to `ks-theme-light.scss` / `ks-theme-dark.scss` — do not pick a one-off color.
+2. **Colors come from `--ks-*` tokens. Always.** No hex codes, no `rgb(...)`, no Element Plus tokens (`--el-*`), no Bootstrap variables, no SCSS color variables in component code. If the token you need does not exist, talk to design and add it to `ks-theme-light.scss` / `ks-theme-dark.scss` / `ks-theme-dark-2.scss` — do not pick a one-off color.
 3. **Typography comes from `KsText` or typography tokens.** Use `<KsText>` (with `size`, `type`, `tag`, `truncated`, `lineClamp`) for body copy. For headings or one-off needs, use the `$font-family-*` and `$font-size-*` SCSS variables only inside the design-system package — feature code should not redefine them.
 4. **No `:deep()` selectors.** Reaching into a child component's internals breaks encapsulation and silently shatters when the design system is upgraded. If you need to style something inside a `Ks*` component, add a prop, a slot, or a CSS variable to the component upstream.
 5. **No SCSS variables (`$...`) in feature components.** Use `var(--ks-*)` CSS custom properties inside `<style>` blocks. SCSS variables don't react to dark mode, can't be overridden at runtime, and bind your component to a specific theme. SCSS variables are only acceptable inside `ui/packages/design-system/` itself, in mixins, or for math at build time.
-6. **No magic numbers for theme values.** Spacing, radii, font sizes, and shadows must reference tokens or design-system SCSS variables — never `padding: 13px`, never `border-radius: 6px`. Use `rem` for sizing primitives and tokens for everything theme-aware.
+6. **No magic numbers for theme values.** Spacing, radii, font sizes, and shadows must reference tokens or design-system SCSS variables — never `padding: 13px`, never `border-radius: 6px`. For spacing (`padding`/`margin`/`gap`), reach for the `--ks-spacing-*` scale first (`--ks-spacing-1` = 0.25rem, `-2` = 0.5rem, `-3` = 0.75rem, `-4` = 1rem, `-5` = 1.5rem, `-6` = 2rem, `-7` = 2.5rem, `-8` = 3rem, `-10` = 4rem, `-12` = 5rem, `-16` = 6rem; declared in [`ks-tokens.scss`](packages/design-system/src/assets/styles/ks-tokens.scss)). Only fall back to a raw `rem` value when no token fits — never a hardcoded `px` value (`margin: 0 24px` → `margin: 0 var(--ks-spacing-5)`).
 7. **Never override Element Plus classes directly.** Don't write `.el-button { ... }` in feature code. If a `Ks*` component is missing a behavior, extend the component in the design system instead of patching CSS at the call site.
 8. **Don't fork — extend.** If a `Ks*` component is *almost* what you need, add a prop or a slot to the component in `ui/packages/design-system/`. Copy-pasting the component into your feature folder is forbidden.
 9. **Every new `Ks*` component needs a Storybook story and a unit test.** Stories double as living documentation for design and product reviewers.
@@ -70,6 +70,8 @@ Reject (or ask to fix) anything that:
 - Adds a CSS class that overrides `.el-...` selectors.
 - Duplicates a component that already exists in the design system.
 - Adds a `Ks*` component without a Storybook story or test.
+- Mounts `KsDataTable` without binding `:currentPage` / `:pageSize` (or `v-model:currentPage` / `v-model:pageSize`) — pagination is controlled; see "Data tables & pagination state".
+- Watches a `computed` that returns a fresh object (spread / `{...}`) with `{deep: true}` — that fires on every dependency change regardless of content. See "The deep-watch / computed-spread trap".
 
 ### Accessibility
 
@@ -95,6 +97,83 @@ Every async surface must render all four states. "Happy path only" is a bug.
 - **Empty:** `KsEmpty` with an action where possible — never a blank screen.
 - **Error:** `KsAlert type="error"` with retry affordance, or `KsMessage` for transient errors.
 - **Success / data:** the actual content.
+
+### Data tables & pagination state
+
+`KsDataTable` is a **fully controlled component** for pagination. `props.currentPage` and `props.pageSize` are the single source of truth — the component holds no internal page mirror. The parent owns the state, binds it (URL or local ref), and the component reacts.
+
+**The contract:**
+
+- Bind `:currentPage` / `:pageSize` (one-way) OR use `v-model:currentPage` / `v-model:pageSize` (two-way).
+- Listen to `@page-changed` (or rely on `@update:currentPage`/`@update:pageSize` via v-model) and propagate the change to the bound state — typically a `router.push({...route.query, page: String(page), size: String(size)})`.
+- The component watches `[currentPage, pageSize]` and re-fires `loadData` automatically when either prop changes. Do **not** call `dataTable.reload()` from the parent in response to a page click — the prop change handles it.
+- `resetAndReload()` emits `update:currentPage(1)` and `page-changed`; if the page was already 1 it just reloads. Useful from a filter-change watcher to bounce back to page 1 + re-fetch.
+
+**URL-driven pattern** — the default for top-level list pages (Logs, Flows, Executions, KV, Secrets, Triggers, FlowsSearch, Blueprints):
+
+```vue
+<KsDataTable
+    :loadData="loadData"
+    :currentPage="urlPage"
+    :pageSize="urlSize"
+    :total="store.total"
+    @page-changed="({page, size}) => router.push({query: {...route.query, page: String(page), size: String(size)}})"
+/>
+
+<script setup>
+const urlPage = computed(() => Number(route.query.page) || 1)
+const urlSize = computed(() => Number(route.query.size) || 25)
+</script>
+```
+
+**Local-state pattern** — for embedded tables that should not appear in the URL (MetricsTable, side-panel views):
+
+```vue
+<KsDataTable
+    v-model:currentPage="currentPage"
+    v-model:pageSize="pageSize"
+    :loadData="loadData"
+    :total="..."
+/>
+
+<script setup>
+const currentPage = ref(1)
+const pageSize = ref(25)
+</script>
+```
+
+**Never** maintain a separate `internalPage` / `pageNumber` ref *and* bind the prop to a different value — that re-introduces the drift bug (URL says page 2, UI shows page 1) that this contract exists to prevent.
+
+### The deep-watch / computed-spread trap
+
+A `computed` that returns a fresh object (via spread or `{...}`) returns a new reference on every evaluation. Watching it with `{deep: true}` does **not** add structural equality — `deep: true` enables deep dependency tracking; the equality check at the top is still `Object.is`. The callback therefore fires on every dependency change, even when the content is unchanged.
+
+This was the root cause of the logs pagination bug: the watcher reset the page to 1 on every `route.query` mutation, including page-only updates from the user clicking the pagination itself.
+
+**Don't:**
+
+```ts
+const filterQuery = computed(() => {
+    const {page: _p, size: _s, sort: _so, ...filters} = route.query
+    return filters  // new object reference on every route.query change
+})
+watch(filterQuery, () => dataTable.value?.resetAndReload(), {deep: true})
+// Fires on every route.query change — page clicks, sort clicks, anything —
+// and bounces the user back to page 1.
+```
+
+**Do:**
+
+```ts
+const filterQueryKey = computed(() => {
+    const {page: _p, size: _s, sort: _so, ...filters} = route.query
+    return JSON.stringify(filters)  // stable string — same content, same value
+})
+watch(filterQueryKey, () => dataTable.value?.resetAndReload())
+// Fires only when filter content actually changes.
+```
+
+The general rule: **if you find yourself reaching for `{deep: true}` on a computed source, the source should probably return a primitive (string / number) instead of an object.** Strings compare by value; references compare by identity. Picking the right primitive is the fix.
 
 ### Icons
 
@@ -157,8 +236,8 @@ If your `<style>` block needs to exist:
 ```scss
 /* Right: --ks-* tokens, no SCSS vars in feature code, no :deep */
 .my-feature {
-    background: var(--ks-background-card);
-    color: var(--ks-content-primary);
+    background: var(--ks-bg-surface);
+    color: var(--ks-text-primary);
     border: 1px solid var(--ks-border-primary);
 }
 ```
@@ -216,7 +295,7 @@ If your `<style>` block needs to exist:
 |-----------|---------|
 | `KsCard` | Card container |
 | `KsTable` / `KsTableColumn` | Basic table |
-| `KsDataTable` / `KsFilter` / `KsBulkSelect` | Advanced data table with filtering, sorting, pagination, bulk actions |
+| `KsDataTable` / `KsFilter` / `KsBulkSelect` | Advanced data table with filtering, sorting, pagination, bulk actions. **Pagination is fully controlled** — bind `:currentPage` / `:pageSize` (or `v-model:`). See "Data tables & pagination state". |
 | `KsBadge` | Small indicator badge |
 | `KsTag` / `KsCheckTag` | Tag / label; clickable checkbox-style tag |
 | `KsAvatar` | Avatar with fallback |
@@ -231,6 +310,7 @@ If your `<style>` block needs to exist:
 | `KsTree` | Hierarchical tree view |
 | `KsTimeline` / `KsTimelineItem` | Timeline visualization |
 | `KsExecutionStatus` | Execution / task status badge with icon and color |
+| `KsCodeStatus` | Compact validity badge with icon (`valid` / `error`) — caller supplies the label |
 | `KsMarkdown` | Markdown renderer (lazy-load on heavy surfaces) |
 
 ### Charts
@@ -249,6 +329,7 @@ If your `<style>` block needs to exist:
 | `KsMenu` / `KsMenuItem` | Hierarchical menu |
 | `KsDropdown` / `KsDropdownMenu` / `KsDropdownItem` | Dropdown menu |
 | `KsTopNavBar` | Top navigation bar |
+| `KsSideBar` / `KsSideBarSection` / `KsSideBarItem` | Left sidebar shell (header / scrollable body / footer slots), section with title, and styled link primitive with icon, active and locked states |
 | `KsBreadcrumb` / `KsBreadcrumbItem` | Breadcrumb navigation |
 | `KsSteps` / `KsStep` | Step / wizard progress indicator |
 
@@ -279,28 +360,28 @@ If your `<style>` block needs to exist:
 
 ## Design tokens
 
-Tokens are CSS custom properties declared in [`ks-theme-light.scss`](packages/design-system/src/assets/styles/ks-theme-light.scss) and [`ks-theme-dark.scss`](packages/design-system/src/assets/styles/ks-theme-dark.scss). Each token is **semantic** — it describes *what the value means*, not what color it is. That is what makes dark mode and rebrands trivial.
+Tokens are CSS custom properties declared in [`ks-theme-light.scss`](packages/design-system/src/assets/styles/ks-theme-light.scss), [`ks-theme-dark.scss`](packages/design-system/src/assets/styles/ks-theme-dark.scss) and  [`ks-theme-dark-2.scss`](packages/design-system/src/assets/styles/ks-theme-dark-2.scss). Each token is **semantic** — it describes *what the value means*, not what color it is. That is what makes dark mode and rebrands trivial.
 
 **Always use `var(--ks-*)` in component `<style>` blocks** — not SCSS variables, not hex codes, not `--el-*`, not `--bs-*`.
 
 Token families currently exposed:
 
-- `--ks-background-*` — page, card, table-row, panel, input backgrounds, plus per-state backgrounds (`--ks-background-success`, `--ks-background-failed`, …)
+- `--ks-background-*` — page, card, table-row, panel, input backgrounds, plus per-state backgrounds (`--ks-bg-success`, `--ks-background-failed`, …)
 - `--ks-border-*` — primary / secondary borders, plus per-state borders
 - `--ks-content-*` — text colors (primary, inverse, link, link-hover, per-state)
 - `--ks-button-*` — button background and content variants (primary / secondary / success, idle / hover / active, …)
 - `--ks-badge-*`, `--ks-tag-*`, `--ks-card-*`, `--ks-dialog-*`, `--ks-dropdown-*`, `--ks-tooltip-*`, `--ks-select-*`, `--ks-scrollbar-*` — component-specific tokens
-- `--ks-chart-*` — palette for charts; pair with `cssVar("--ks-chart-success")` in JS
-- `--ks-editor-*`, `--ks-log-*`, `--ks-dependencies-*`, `--ks-playground-*`, `--ks-dots-*` — domain-specific surfaces
+- `--ks-status-*` — palette for charts; pair with `cssVar("--ks-status-success")` in JS
+- `--ks-editor-*`, `--ks-log-*`, `--ks-dependencies-*`, `--ks-dots-*` — domain-specific surfaces
 
-When a needed token is missing, **add it** to both `ks-theme-light.scss` and `ks-theme-dark.scss` (and review with design) rather than picking a raw color.
+When a needed token is missing, **add it** to both `ks-theme-light.scss`,`ks-theme-dark.scss` and `ks-theme-dark-2.scss` (and review with design) rather than picking a raw color.
 
 **SCSS variables — only inside `ui/packages/design-system/`, never in feature code:**
 
-- **Brand:** `$base-purple-500` (primary, `#8405FF`)
+- **Brand:** `$base-primary-500` (primary, `#8405FF`)
 - **Status palette:** `$base-green-500` (success), `$base-red-500` (danger), `$base-orange-500` (warning), `$base-blue-500` (info)
 - **Grays:** `$base-gray-50` … `$base-gray-950`
-- **Typography:** `$font-family-sans-serif` (Public Sans), `$font-family-monospace` (Source Code Pro)
+- **Typography:** `$font-family-sans-serif` (Inter), `$font-family-monospace` (JetBrains Mono)
 - **Font sizes:** `$font-size-xs` / `sm` / `md` / `lg` / `xl` / `2xl` / `3xl` / `4xl`
 - **Radii:** `$border-radius` (0.25rem), `$border-radius-sm` (0.15rem), `$border-radius-lg` (0.5rem)
 
